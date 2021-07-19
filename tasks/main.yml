@@ -1,2 +1,25 @@
 ---
 # tasks file for timesync
+- name: set timezone
+  community.general.timezone:
+    name: "{{ timesync_timezone_name }}"
+
+- name: check status of services
+  ansible.builtin.service_facts:
+
+- name: check status of systemd-timesyncd
+  ansible.builtin.debug:
+    var: ansible_facts.services['systemd-timesyncd.service']
+
+- name: configure ntp servers in systemd-timesyncd
+  ansible.builtin.lineinfile:
+    dest: /etc/systemd/timesyncd.conf
+    regexp: '{{ item.regexp }}'
+    line: '{{ item.line }}'
+    backrefs: yes
+    state: present
+  with_items:
+    - regexp: '^#?(NTP=).*$'
+      line: '\g<1>{{ timesync_timeservers | join(" ") }}'
+  notify: "Restart systemd-timesyncd"
+  when: ansible_facts.services['systemd-timesyncd.service']['status'] == 'enabled'
